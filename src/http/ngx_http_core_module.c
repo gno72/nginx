@@ -88,6 +88,7 @@ static char *ngx_http_disable_symlinks(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
 #endif
 
+static char *ngx_http_core_accept_ch(ngx_conf_t *cf, ngx_command_t *post, void *conf);
 static char *ngx_http_core_lowat_check(ngx_conf_t *cf, void *post, void *data);
 static char *ngx_http_core_pool_size(ngx_conf_t *cf, void *post, void *data);
 
@@ -290,6 +291,13 @@ static ngx_command_t  ngx_http_core_commands[] = {
     { ngx_string("server_name"),
       NGX_HTTP_SRV_CONF|NGX_CONF_1MORE,
       ngx_http_core_server_name,
+      NGX_HTTP_SRV_CONF_OFFSET,
+      0,
+      NULL },
+
+    { ngx_string("accept_ch"),
+      NGX_HTTP_SRV_CONF|NGX_CONF_TAKE2,
+      ngx_http_core_accept_ch,
       NGX_HTTP_SRV_CONF_OFFSET,
       0,
       NULL },
@@ -4312,6 +4320,57 @@ ngx_http_core_listen(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     return NGX_CONF_OK;
 }
 
+static char *
+ngx_http_core_accept_ch(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    ngx_http_core_srv_conf_t *cscf = conf;
+
+    ngx_str_t               *value;
+
+    u_char *localhost_origin, *accept_ch;
+    uint8_t* ptr;
+    uint32_t len_l, len_l_n;
+    uint16_t len, len_n;
+
+    value = cf->args->elts;
+
+    localhost_origin = value[1].data;
+    accept_ch = value[2].data;
+
+    len_l = ngx_strlen(localhost_origin) + ngx_strlen(accept_ch) + 4;
+    cscf->accept_ch = ngx_pcalloc(cf->pool, len_l+9);
+    cscf->accept_ch_size = len_l+9;
+    ptr = cscf->accept_ch;
+
+    len_l_n = htonl(len_l);
+    ngx_memcpy(ptr, (uint8_t *)(&len_l_n)+1, 3);
+    ptr += 3;
+
+    len = 0x89;
+    ngx_memcpy(ptr, (uint8_t *)(&len), 1);
+    ptr += 1;
+
+    len = 0;
+    ngx_memcpy(ptr, (uint8_t *)(&len), 1);
+    ngx_memcpy(ptr, (uint8_t *)(&len), 2);
+    ngx_memcpy(ptr, (uint8_t *)(&len), 2);
+    ptr += 5;
+
+    len = ngx_strlen(localhost_origin);
+    len_n = htons(len);
+    ngx_memcpy(ptr, (uint8_t *)(&len_n), 2);
+    ptr += 2;
+    ngx_memcpy(ptr, localhost_origin, len);
+    ptr += len;
+
+    len = ngx_strlen(accept_ch);
+    len_n = htons(len);
+    ngx_memcpy(ptr, (uint8_t *)(&len_n), 2);
+    ptr += 2;
+    ngx_memcpy(ptr, accept_ch, len);
+    //ptr += len;
+    return NGX_CONF_OK;
+}
 
 static char *
 ngx_http_core_server_name(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)

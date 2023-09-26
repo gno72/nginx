@@ -426,6 +426,7 @@ ngx_http_ssl_alpn_select(ngx_ssl_conn_t *ssl_conn, const unsigned char **out,
 #endif
 #if (NGX_HTTP_V2)
     ngx_http_connection_t  *hc;
+    ngx_http_core_srv_conf_t  *cscf;
 #endif
 #if (NGX_HTTP_V2 || NGX_DEBUG)
     ngx_connection_t       *c;
@@ -463,6 +464,16 @@ ngx_http_ssl_alpn_select(ngx_ssl_conn_t *ssl_conn, const unsigned char **out,
 
     ngx_log_debug2(NGX_LOG_DEBUG_HTTP, c->log, 0,
                    "SSL ALPN selected: %*s", (size_t) *outlen, *out);
+
+    #if (NGX_HTTP_V2)
+        if(ngx_strcmp(*out, NGX_HTTP_V2_ALPN_PROTO)) {
+            cscf = ngx_http_get_module_srv_conf(hc->conf_ctx, ngx_http_core_module);
+            if (!SSL_add_application_settings(ssl_conn, *out, *outlen, cscf->accept_ch, cscf->accept_ch_size))
+            {
+                return SSL_TLSEXT_ERR_ALERT_FATAL;
+            }
+        }
+    #endif
 
     return SSL_TLSEXT_ERR_OK;
 }

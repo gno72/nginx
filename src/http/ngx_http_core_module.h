@@ -206,6 +206,8 @@ typedef struct {
 #endif
 
     ngx_http_core_loc_conf_t  **named_locations;
+    u_char                    *accept_ch;
+    uint32_t                  accept_ch_size;
 } ngx_http_core_srv_conf_t;
 
 
